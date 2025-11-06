@@ -78,16 +78,24 @@
         }
       }
 
-      // Cross-origin friendly reachability check via image load
+      // Cross-origin reachability check: try fetch no-cors first, fallback to image probe
       function checkTunnel(url) {
         const base = (url || input.value || defaultTunnel).replace(/\/$/, '/');
-        const img = new Image();
-        const probe = base + 'vnc.html?_=' + Date.now();
-        let done = false;
-        const timeout = setTimeout(() => { if (!done) { done = true; setStatus(false); } }, 5000);
-        img.onload = () => { if (!done) { done = true; clearTimeout(timeout); setStatus(true); } };
-        img.onerror = () => { if (!done) { done = true; clearTimeout(timeout); setStatus(false); } };
-        img.src = probe;
+        const probeUrl = base + '?_=' + Date.now();
+        let finished = false;
+        const finish = (ok) => { if (!finished) { finished = true; setStatus(ok); } };
+
+        // Try a no-cors fetch to root which should resolve opaque if reachable
+        fetch(probeUrl, { method: 'GET', mode: 'no-cors', cache: 'no-store' })
+          .then(() => finish(true))
+          .catch(() => {
+            // Fallback: image probe to vnc.html
+            const img = new Image();
+            const timeout = setTimeout(() => finish(false), 5000);
+            img.onload = () => { clearTimeout(timeout); finish(true); };
+            img.onerror = () => { clearTimeout(timeout); finish(false); };
+            img.src = base + 'vnc.html?_=' + Date.now();
+          });
       }
 
       checkBtn.addEventListener('click', () => checkTunnel());
