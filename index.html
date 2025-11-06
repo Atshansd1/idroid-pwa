@@ -78,30 +78,34 @@
         }
       }
 
-      // Cross-origin reachability check: try fetch no-cors first, fallback to image probe
+      // Cross-origin reachability check via hidden iframe to root (avoids ORB/CORS noise)
       function checkTunnel(url) {
         const base = (url || input.value || defaultTunnel).replace(/\/$/, '/');
-        const probeUrl = base + '?_=' + Date.now();
-        let finished = false;
-        const finish = (ok) => { if (!finished) { finished = true; setStatus(ok); } };
-
-        // Try a no-cors fetch to root which should resolve opaque if reachable
-        fetch(probeUrl, { method: 'GET', mode: 'no-cors', cache: 'no-store' })
-          .then(() => finish(true))
-          .catch(() => {
-            // Fallback: image probe to vnc.html
-            const img = new Image();
-            const timeout = setTimeout(() => finish(false), 5000);
-            img.onload = () => { clearTimeout(timeout); finish(true); };
-            img.onerror = () => { clearTimeout(timeout); finish(false); };
-            img.src = base + 'vnc.html?_=' + Date.now();
-          });
+        const probe = document.createElement('iframe');
+        probe.style.position = 'absolute';
+        probe.style.width = '1px';
+        probe.style.height = '1px';
+        probe.style.left = '-9999px';
+        probe.style.top = '-9999px';
+        probe.referrerPolicy = 'no-referrer';
+        let done = false;
+        const cleanup = (ok) => {
+          if (done) return;
+          done = true;
+          try { probe.remove(); } catch {}
+          setStatus(ok);
+        };
+        const timeout = setTimeout(() => cleanup(false), 7000);
+        probe.addEventListener('load', () => { clearTimeout(timeout); cleanup(true); });
+        probe.addEventListener('error', () => { clearTimeout(timeout); cleanup(false); });
+        probe.src = base + '?_=' + Date.now();
+        document.body.appendChild(probe);
       }
 
       checkBtn.addEventListener('click', () => checkTunnel());
-      // Auto-check every 20s
+      // Auto-check every 30s
       checkTunnel(TUNNEL_URL);
-      setInterval(checkTunnel, 20000);
+      setInterval(checkTunnel, 30000);
 
       // Open admin with Basic Auth in a new tab
       adminBtn.addEventListener('click', () => {
