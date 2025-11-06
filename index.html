@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>iDroid Android Web</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#111" />
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="iDroid" />
+    <!-- Optional: apple-touch-icon can be added later -->
+    <style>
+      html, body { height: 100%; margin: 0; background: #0b0b0b; }
+      .frame { position: fixed; inset: 0; border: 0; width: 100%; height: 100%; }
+      .banner { position: fixed; top: 8px; left: 8px; right: 8px; z-index: 10; display: flex; justify-content: space-between; align-items: center; }
+      .banner span { color: #fff; font: 500 14px/1.6 system-ui, -apple-system; opacity: 0.9; }
+      .btn { background: #1e90ff; color: #fff; border: 0; border-radius: 8px; padding: 8px 12px; font: 600 13px/1.2 system-ui, -apple-system; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      <span>Open in Safari → Share → Add to Home Screen</span>
+      <button id="installBtn" class="btn" hidden>Add to Home Screen</button>
+    </div>
+    <iframe id="androidFrame" class="frame" src="" allow="clipboard-read; clipboard-write; fullscreen; autoplay; microphone; camera"></iframe>
+
+    <script>
+      const TUNNEL_URL = window.localStorage.getItem('TUNNEL_URL') || 'https://packets-association-broken-albert.trycloudflare.com/';
+      const frame = document.getElementById('androidFrame');
+      frame.src = TUNNEL_URL;
+
+      // PWA install prompt
+      let deferredPrompt;
+      const installBtn = document.getElementById('installBtn');
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installBtn.hidden = false;
+      });
+      installBtn.addEventListener('click', async () => {
+        installBtn.hidden = true;
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+      });
+
+      // Register service worker for PWA
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+      }
+    </script>
+  </body>
+  </html>
