@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>iDroid Android Web</title>
     <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <meta name="theme-color" content="#111" />
     <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -49,7 +50,17 @@
 
       const defaultTunnel = 'https://listing-lanes-gravity-dispatched.trycloudflare.com/';
       const storedTunnel = window.localStorage.getItem('TUNNEL_URL');
-      const TUNNEL_URL = storedTunnel || defaultTunnel;
+      // Allow deep link via ?tunnel=https://...
+      const params = new URLSearchParams(window.location.search);
+      const paramTunnel = params.get('tunnel');
+      let TUNNEL_URL = storedTunnel || defaultTunnel;
+      if (paramTunnel) {
+        try {
+          const u = new URL(paramTunnel);
+          TUNNEL_URL = u.href;
+          window.localStorage.setItem('TUNNEL_URL', u.href);
+        } catch {}
+      }
       input.value = TUNNEL_URL;
       frame.src = TUNNEL_URL;
 
