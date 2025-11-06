@@ -17,14 +17,22 @@
       .banner { position: fixed; top: 8px; left: 8px; right: 8px; z-index: 10; display: flex; justify-content: space-between; align-items: center; }
       .banner span { color: #fff; font: 500 14px/1.6 system-ui, -apple-system; opacity: 0.9; }
       .btn { background: #1e90ff; color: #fff; border: 0; border-radius: 8px; padding: 8px 12px; font: 600 13px/1.2 system-ui, -apple-system; cursor: pointer; }
+      .status { display: inline-flex; align-items: center; gap: 8px; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+      .dot.ok { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
+      .dot.down { background: #e74c3c; box-shadow: 0 0 8px #e74c3c; }
+      .input { width: 320px; padding:6px 8px; border-radius:8px; border:1px solid #333; background:#111; color:#fff; }
     </style>
   </head>
   <body>
     <div class="banner">
       <span>Open in Safari → Share → Add to Home Screen</span>
       <div style="display:flex; gap:8px; align-items:center;">
-        <input id="tunnelInput" type="url" placeholder="https://your-tunnel.trycloudflare.com/" style="width: 320px; padding:6px 8px; border-radius:8px; border:1px solid #333; background:#111; color:#fff;" />
+        <div class="status"><span class="dot down" id="statusDot"></span><span id="statusText" style="color:#fff; opacity:.85;">Checking tunnel…</span></div>
+        <input id="tunnelInput" class="input" type="url" placeholder="https://your-tunnel.trycloudflare.com/" />
         <button id="saveTunnel" class="btn">Use Tunnel</button>
+        <button id="checkTunnel" class="btn" title="Re-check tunnel status">Check</button>
+        <button id="openAdmin" class="btn" title="Open admin in new tab">Open Admin</button>
         <button id="installBtn" class="btn" hidden>Add to Home Screen</button>
       </div>
     </div>
@@ -34,6 +42,10 @@
       const frame = document.getElementById('androidFrame');
       const input = document.getElementById('tunnelInput');
       const saveBtn = document.getElementById('saveTunnel');
+      const checkBtn = document.getElementById('checkTunnel');
+      const adminBtn = document.getElementById('openAdmin');
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
 
       const defaultTunnel = 'https://listing-lanes-gravity-dispatched.trycloudflare.com/';
       const storedTunnel = window.localStorage.getItem('TUNNEL_URL');
@@ -48,8 +60,56 @@
           const u = new URL(url);
           window.localStorage.setItem('TUNNEL_URL', u.href);
           frame.src = u.href;
+          checkTunnel(u.href);
         } catch (e) {
           alert('Please enter a valid https:// URL');
+        }
+      });
+
+      function setStatus(ok) {
+        if (ok) {
+          statusDot.classList.remove('down');
+          statusDot.classList.add('ok');
+          statusText.textContent = 'Tunnel OK';
+        } else {
+          statusDot.classList.remove('ok');
+          statusDot.classList.add('down');
+          statusText.textContent = 'Tunnel down';
+        }
+      }
+
+      // Cross-origin friendly reachability check via image load
+      function checkTunnel(url) {
+        const base = (url || input.value || defaultTunnel).replace(/\/$/, '/');
+        const img = new Image();
+        const probe = base + 'vnc.html?_=' + Date.now();
+        let done = false;
+        const timeout = setTimeout(() => { if (!done) { done = true; setStatus(false); } }, 5000);
+        img.onload = () => { if (!done) { done = true; clearTimeout(timeout); setStatus(true); } };
+        img.onerror = () => { if (!done) { done = true; clearTimeout(timeout); setStatus(false); } };
+        img.src = probe;
+      }
+
+      checkBtn.addEventListener('click', () => checkTunnel());
+      // Auto-check every 20s
+      checkTunnel(TUNNEL_URL);
+      setInterval(checkTunnel, 20000);
+
+      // Open admin with Basic Auth in a new tab
+      adminBtn.addEventListener('click', () => {
+        const base = (input.value || defaultTunnel).replace(/\/$/, '/');
+        const user = prompt('Admin username:');
+        if (user == null) return;
+        const pass = prompt('Admin password:');
+        if (pass == null) return;
+        try {
+          const u = new URL(base);
+          // Inject credentials
+          const credHost = `${u.protocol}//${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${u.host}`;
+          const adminUrl = `${credHost}/admin/`;
+          window.open(adminUrl, '_blank', 'noopener');
+        } catch (e) {
+          alert('Invalid tunnel URL. Please set a valid https:// URL first.');
         }
       });
 
